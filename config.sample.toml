@@ -9,21 +9,21 @@
 # * trace: Includes ^^ + details about parsed values and the raw IPMI commands
 #
 # (Note: This option is ignored if the RUST_LOG environment variable is set)
-#log_level = "info"
+log_level = "debug"
 
 # Definition of a logical fan zone.
 [[zones]]
 # IPMI session. If unspecified, the `default` session is used, which uses the
 # local in-band IPMI device (eg. /dev/ipmi0). Sessions are defined below in the
 # `sessions` section.
-#session = "default"
+session = "default"
 
 # List of IPMI zones to be included in this logical zone.
-ipmi_zones = [0]
+ipmi_zones = [0, 1]
 
 # Number of seconds to wait between fan update interations. If unspecified, the
 # default interval is 1 second.
-interval = 5
+interval = 1
 
 # Number of retries to query temperature source. If temperature readings are
 # still not successfully queried after all attempts, then the program will fail
@@ -36,30 +36,33 @@ interval = 5
 
 # Temperature sources to use for measurement.
 sources = [
-    # IPMI sensor source. The sensor's units must be `degrees C`.
-    { type = "ipmi", sensor = "CPU1 Temp" },
+  # IPMI sensor source. The sensor's units must be `degrees C`.
+  { type = "ipmi", sensor = "CPU Temp" },
 
-    # Local file source. File formatting rules:
-    #
-    # * Must be in ASCII encoding
-    # * Units must be milli-degrees Celsius (1/1000 °C)
-    # * No characters other than numbers and whitespace are permitted
-    #
-    # The thermal_zone sysfs paths on Linux satisfy these conditions.
-    { type = "file", path = "/sys/class/thermal/thermal_zone1/temp" },
+  # Local file source. File formatting rules:
+  #
+  # * Must be in ASCII encoding
+  # * Units must be milli-degrees Celsius (1/1000 °C)
+  # * No characters other than numbers and whitespace are permitted
+  #
+  # The thermal_zone sysfs paths on Linux satisfy these conditions.
+  # { type = "file", path = "/sys/class/thermal/thermal_zone1/temp" },
 
-    # HDD S.M.A.R.T. source. Disks that are spun down may not report a
-    # temperature reading, leading to an error. This internally runs:
-    #
-    #   smartctl -j -A -n standby <block_dev>
-    #
-    # and requires smartmontools >= 7.0 to be installed.
-    { type = "smart", block_dev = "/dev/disk/by-id/..." },
+  # HDD S.M.A.R.T. source. Disks that are spun down may not report a
+  # temperature reading, leading to an error. This internally runs:
+  #
+  #   smartctl -j -A -n standby <block_dev>
+  #
+  # and requires smartmontools >= 7.0 to be installed.
+  # { type = "smart", block_dev = "/dev/disk/by-id/ata-ST6000VN001-2BB186_ZR12WE0S" },
+  # { type = "smart", block_dev = "/dev/disk/by-id/ata-ST6000VN0033-2EE110_ZAD8N3FM" },
+  # { type = "smart", block_dev = "/dev/disk/by-id/ata-ST6000VN0033-2EE110_ZAD8R2G3" },
+  # { type = "smart", block_dev = "/dev/disk/by-id/ata-ST6000VN0033-2EE110_ZAD8R31T" },
 
-    # "hdparm -H" source. This is specific to some Hitachi/HGST/WD drives and
-    # allows the HDD temperature to be queried even when the drive is spun down.
-    # This requires hdparm to be installed.
-    { type = "hdparm", block_dev = "/dev/disk/by-id/..." },
+  # "hdparm -H" source. This is specific to some Hitachi/HGST/WD drives and
+  # allows the HDD temperature to be queried even when the drive is spun down.
+  # This requires hdparm to be installed.
+  # { type = "hdparm", block_dev = "/dev/disk/by-id/..." },
 ]
 
 # Method of aggregating the temperatures from all of the sources. By default,
@@ -91,8 +94,8 @@ sources = [
 # fan speed. Also, the list must be sorted, `temp` must be strictly increasing,
 # and `dcycle` must be increasing.
 steps = [
-    { temp = 30, dcycle = 30 },
-    { temp = 70, dcycle = 70 },
+  { temp = 40, dcycle = 40 },
+  { temp = 70, dcycle = 70 }
 ]
 
 # More fan zones can be added
@@ -117,7 +120,7 @@ steps = [
 [sessions]
 # Implicit default session for connecting to local IPMI. If this is changed, it
 # will take effect in any zone that doesn't explicitly specify another session.
-#"default" = { type = "local" }
+"default" = { type = "local" }
 
 # Example of a remote session.
 #"remote" = { type = "remote", hostname = "<host>", username = "<username>", password = "<password>" }
