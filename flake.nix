@@ -13,64 +13,20 @@
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
-        pkgs = nixpkgs.legacyPackages.${system};
-        # Read the file relative to the flake's root
-        # overrides = builtins.fromTOML (builtins.readFile (self + "/rust-toolchain.toml"));
-        # libPath = with pkgs;
-        #   lib.makeLibraryPath [
-        #     freeipmi
-        #   ];
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [self.overlays.default];
+        };
       in {
         formatter = pkgs.alejandra;
 
         packages = {
-          default = self.packages.${system}.ipmi-fan-control;
-
-          ipmi-fan-control = pkgs.rustPlatform.buildRustPackage {
-            pname = "ipmi-fan-control";
-            version = "0.1.0"; # Update with your actual version
-
-            src = self;
-
-            cargoLock = {
-              lockFile = ./Cargo.lock;
-            };
-
-            nativeBuildInputs = with pkgs; [
-              pkg-config
-              clang
-              llvmPackages_latest.libclang
-            ];
-
-            buildInputs = with pkgs; [
-              freeipmi
-            ];
-
-            # Environment variables for the build
-            LIBCLANG_PATH = pkgs.lib.makeLibraryPath [pkgs.llvmPackages_latest.libclang.lib];
-
-            # Add bindgen flags to help find the headers
-            BINDGEN_EXTRA_CLANG_ARGS =
-              # Includes normal include path
-              (builtins.map (a: ''-I"${a}/include"'') [
-                # add dev libraries here (e.g. pkgs.libvmi.dev)
-                pkgs.glibc.dev
-              ])
-              # Includes with special directory paths
-              ++ [
-                ''-I"${pkgs.llvmPackages_latest.libclang.lib}/lib/clang/${pkgs.llvmPackages_latest.libclang.version}/include"''
-                ''-I"${pkgs.glib.dev}/include/glib-2.0"''
-                ''-I${pkgs.glib.out}/lib/glib-2.0/include/''
-              ];
-
-            # Add runtime dependencies to the library path
-            # postFixup = ''
-            #   patchelf --set-rpath "${libPath}" $out/bin/*
-            # '';
-          };
+          default = pkgs.ipmi-fan-control;
+          ipmi-fan-control = pkgs.ipmi-fan-control;
         };
 
         devShells.default = pkgs.mkShell rec {
+          name = "ipmi-fan";
           nativeBuildInputs = [pkgs.pkg-config];
           buildInputs = with pkgs; [
             clang
@@ -112,5 +68,12 @@
             ];
         };
       }
-    );
+    )
+    // {
+      # Import the NixOS module from a separate file
+      nixosModules.default = import ./nix/module.nix;
+
+      # Import the overlay from a separate file
+      overlays.default = import ./nix/overlay.nix;
+    };
 }
