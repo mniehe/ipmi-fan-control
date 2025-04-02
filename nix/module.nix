@@ -43,35 +43,35 @@ in {
       description = "Configuration for IPMI fan control";
       example = literalExpression ''
         {
-          ipmi = {
-            username = "ADMIN";
-            password = "ADMIN";
-            host = "localhost";
-          };
-          fans = [
+          log_level = "info";
+          zones = [
             {
-              id = 0;
-              name = "CPU1";
-              min_speed = 10;
-              max_speed = 100;
-            }
-            {
-              id = 1;
-              name = "CPU2";
-              min_speed = 10;
-              max_speed = 100;
-            }
-          ];
-          temperature_sensors = [
-            {
-              id = "CPU1";
-              thresholds = [
-                { temperature = 60; speed = 20; }
-                { temperature = 70; speed = 50; }
-                { temperature = 80; speed = 100; }
+              session = "default";
+              ipmi_zones = [0 1];
+              interval = 10;
+              sources = [
+                {
+                  type = "ipmi";
+                  sensor = "CPU Temp";
+                }
+              ];
+              steps = [
+                {
+                  temp = 40;
+                  dcycle = 40;
+                }
+                {
+                  temp = 80;
+                  dcycle = 100;
+                }
               ];
             }
           ];
+          sessions = {
+            default = {
+              type = "local";
+            };
+          };
         }
       '';
     };
@@ -128,6 +128,21 @@ in {
       KERNEL=="ipmidev/*", GROUP="ipmi", MODE="0660"
     '';
 
+    environment.etc."ipmi-fan-control.toml" = {
+      source = configFile;
+      mode = "0600"; # Restrict access as it might contain credentials
+      user = serviceUser;
+      group = serviceGroup;
+    };
+
+    systemd.paths.ipmi-fan-control-config-watcher = {
+      wantedBy = [ "multi-user.target" ];
+      pathConfig = {
+        PathChanged = "/etc/ipmi-fan-control.toml";
+        Unit = "ipmi-fan-control.service";
+      };
+    };
+
     systemd.services.ipmi-fan-control = {
       description = "IPMI Fan Control Service";
       wantedBy = ["multi-user.target"];
@@ -145,13 +160,6 @@ in {
         # Ensure the binary can find all runtime dependencies
         Environment = "PATH=${runtimePath}:$PATH";
       };
-    };
-
-    environment.etc."ipmi-fan-control.toml" = {
-      source = configFile;
-      mode = "0600"; # Restrict access as it might contain credentials
-      user = serviceUser;
-      group = serviceGroup;
     };
   };
 }
