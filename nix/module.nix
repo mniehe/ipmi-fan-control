@@ -1,28 +1,28 @@
 # nix/module.nix
-{ config, lib, pkgs, ... }:
-
-with lib;
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+with lib; let
   cfg = config.services.ipmi-fan-control;
 
   # Service user and group
   serviceUser = "ipmi-fan-control";
   serviceGroup = "ipmi-fan-control";
 
-  # Convert the Nix attribute set to TOML
-  configFile = pkgs.writeTextFile {
-    name = "ipmi-fan-control-config.toml";
-    text = generators.toTOML {} cfg.settings;
-    destination = "/etc/ipmi-fan-control.toml";
-  };
+  # Use pkgs.formats.toml to handle the conversion
+  format = pkgs.formats.toml {};
+  configFile = format.generate "ipmi-fan-control-config.toml" cfg.settings;
 
   # Runtime dependencies
-  runtimeDeps = with pkgs; [
-    freeipmi
-  ]
-  ++ optional cfg.enableSmartMonTools smartmontools
-  ++ optional cfg.enableHdparm hdparm;
+  runtimeDeps = with pkgs;
+    [
+      freeipmi
+    ]
+    ++ optional cfg.enableSmartMonTools smartmontools
+    ++ optional cfg.enableHdparm hdparm;
 
   # Path with all runtime dependencies
   runtimePath = lib.makeBinPath runtimeDeps;
@@ -90,10 +90,10 @@ in {
   };
 
   config = mkIf cfg.enable {
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [cfg.package];
 
     # Ensure the IPMI kernel modules are loaded
-    boot.kernelModules = [ "ipmi_devintf" "ipmi_si" "ipmi_msghandler" ];
+    boot.kernelModules = ["ipmi_devintf" "ipmi_si" "ipmi_msghandler"];
 
     # Create the necessary groups
     users.groups = {
@@ -113,11 +113,12 @@ in {
       group = serviceGroup;
       description = "IPMI Fan Control service user";
       home = "/var/empty";
-      extraGroups = [
-        "ipmi"
-      ]
-      ++ optional cfg.enableSmartMonTools "disk"
-      ++ optional cfg.enableHdparm "disk";
+      extraGroups =
+        [
+          "ipmi"
+        ]
+        ++ optional cfg.enableSmartMonTools "disk"
+        ++ optional cfg.enableHdparm "disk";
     };
 
     # Set up udev rules to ensure correct permissions for IPMI devices
@@ -129,8 +130,8 @@ in {
 
     systemd.services.ipmi-fan-control = {
       description = "IPMI Fan Control Service";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      wantedBy = ["multi-user.target"];
+      after = ["network.target"];
 
       path = runtimeDeps;
 
