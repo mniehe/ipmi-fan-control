@@ -103,8 +103,8 @@ in {
       # Ensure ipmi group exists
       "ipmi" = {};
 
-      # If smartmontools is enabled, ensure disk group exists
-      "disk" = mkIf cfg.enableSmartMonTools {};
+      # Ensure disk group exists when drive access is needed
+      "disk" = mkIf (cfg.enableSmartMonTools || cfg.enableHdparm) {};
     };
 
     # Create the service user with appropriate groups
@@ -135,18 +135,11 @@ in {
       group = serviceGroup;
     };
 
-    systemd.paths.ipmi-fan-control-config-watcher = {
-      wantedBy = [ "multi-user.target" ];
-      pathConfig = {
-        PathChanged = "/etc/ipmi-fan-control.toml";
-        Unit = "ipmi-fan-control.service";
-      };
-    };
-
     systemd.services.ipmi-fan-control = {
       description = "IPMI Fan Control Service";
       wantedBy = ["multi-user.target"];
       after = ["network.target"];
+      restartTriggers = [configFile];
 
       path = runtimeDeps;
 
@@ -157,6 +150,11 @@ in {
         ExecStart = "${cfg.package}/bin/ipmi-fan-control --config /etc/ipmi-fan-control.toml";
         Restart = "on-failure";
         RestartSec = "10s";
+        # CAP_SYS_RAWIO: required for SATA SMART (SCSI passthrough) and hdparm
+        # CAP_SYS_ADMIN: required for NVMe SMART (admin ioctl)
+        AmbientCapabilities =
+          lib.optionals (cfg.enableSmartMonTools || cfg.enableHdparm) ["CAP_SYS_RAWIO"]
+          ++ lib.optionals cfg.enableSmartMonTools ["CAP_SYS_ADMIN"];
         # Ensure the binary can find all runtime dependencies
         Environment = "PATH=${runtimePath}:$PATH";
       };
